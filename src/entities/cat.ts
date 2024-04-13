@@ -11,7 +11,7 @@ import { Tile } from "../model/level";
 
 const MOVEMENT_SPEED = 0.8;
 const UNDERFOOT_AREA_SIZE = 0.25;
-const RENDER_UNDERFOOT_DEBUG = true;
+const RENDER_UNDERFOOT_DEBUG = false;
 
 export class CatEntity extends Entity {
   private randomOffset = Math.random() * 1000;
