@@ -9,6 +9,7 @@
   },
   "scripts": {
     "start": "npx vite",
+    "build": "npx vite build",
     "publish": "git subtree push --prefix dist origin gh-pages"
   }
 }
