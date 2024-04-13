@@ -1,11 +1,16 @@
+import { UpdateContext } from "../main";
+import { CameraEntity } from "./camera";
 import { Entity } from "./entity";
+import * as THREE from "three";
 
-export type ConstructorOf<T extends abstract new (...args: any) => any> = {
-  new (...params: ConstructorParameters<T>): InstanceType<T>;
+export type ConstructorOf<T extends Entity> = {
+  new (...params: any[]): T;
 };
 
 export class EntityCollection {
   private entities: Entity[] = [];
+
+  constructor(private readonly scene: THREE.Scene) {}
 
   add(entity: Entity): void {
     if (this.entities.includes(entity)) {
@@ -13,6 +18,8 @@ export class EntityCollection {
     }
 
     this.entities.push(entity);
+    this.scene.add(entity.getGroup());
+    entity.setup();
   }
 
   remove(entity: Entity): void {
@@ -22,13 +29,21 @@ export class EntityCollection {
     }
 
     this.entities.splice(index, 1);
+    entity.teardown();
+    this.scene.remove(entity.getGroup());
   }
 
-  findOne<T extends Entity>(type: any) {
+  findOne<T extends Entity>(type: ConstructorOf<T>) {
     return this.entities.find((entity) => entity instanceof type) as T;
   }
 
-  findAll<T extends Entity>(type: any) {
+  findAll<T extends Entity>(type: ConstructorOf<T>) {
     return this.entities.filter((entity) => entity instanceof type) as T[];
+  }
+
+  update(ctx: UpdateContext): void {
+    for (const entity of this.entities) {
+      entity.update(ctx);
+    }
   }
 }

@@ -8,28 +8,33 @@ export enum Tile {
 export interface Map {
   readonly width: number;
   readonly height: number;
+  readonly depth: number;
   at(x: number, y: number): Tile;
 }
 
 export interface Level {
+  index: number;
   map: Map;
   playerStartLocation: THREE.Vector2;
   catStartLocations: THREE.Vector2[];
+  goalLocation: THREE.Vector2;
 }
 
-function createLevel(levelDefinition: string): Level {
+function createLevel(index: number, levelDefinitions: string[]): Level {
+  const levelDefinition = levelDefinitions[levelDefinitions.length - 1];
+
   const rawRows = levelDefinition
     .split("\n")
     .filter((row) => row.trim().length > 0)
-    .map((row) => row.split(""));
+    .map((row) => row.split(""))
+    .reverse();
 
   const minFirstNonEmpty = Math.min(
     ...rawRows.map((row) => row.findIndex((val) => val !== " "))
   );
   const maxLastNonEmpty = Math.max(
     ...rawRows.map(
-      (row) =>
-        row.length - 1 - [...row].reverse().findIndex((val) => val !== " ")
+      (row) => row.length - [...row].reverse().findIndex((val) => val !== " ")
     )
   );
 
@@ -44,6 +49,7 @@ function createLevel(levelDefinition: string): Level {
   }
 
   let playerStartLocation: THREE.Vector2 | undefined;
+  let goalLocation: THREE.Vector2 | undefined;
   const catStartLocations: THREE.Vector2[] = [];
 
   const tiles = trimmedRows.map((rowDefinition, rowIndex) => {
@@ -59,11 +65,17 @@ function createLevel(levelDefinition: string): Level {
               "Level contains more than one player start location"
             );
           }
-          playerStartLocation = new THREE.Vector2(rowIndex, columnIndex);
+          playerStartLocation = new THREE.Vector2(columnIndex, rowIndex);
           return Tile.Ground;
         }
         case "C":
-          catStartLocations.push(new THREE.Vector2(rowIndex, columnIndex));
+          catStartLocations.push(new THREE.Vector2(columnIndex, rowIndex));
+          return Tile.Ground;
+        case "G":
+          if (goalLocation) {
+            throw new Error("Level contains more than one goal location");
+          }
+          goalLocation = new THREE.Vector2(columnIndex, rowIndex);
           return Tile.Ground;
         default:
           throw new Error(`Unrecognized tile: ${tileDefinition}`);
@@ -75,28 +87,50 @@ function createLevel(levelDefinition: string): Level {
     throw new Error("No level start location");
   }
 
+  if (!goalLocation) {
+    throw new Error("No goal location");
+  }
+
   return {
+    index,
     map: {
       width: levelWidth,
       height: levelHeight,
+      depth: 1,
       at(x, y) {
+        if (x < 0 || y < 0 || x >= levelWidth || y >= levelHeight) {
+          return Tile.Gap;
+        }
+
         return tiles[y][x];
       },
       ...{ tiles },
     },
     playerStartLocation,
     catStartLocations,
+    goalLocation,
   };
 }
 
 export const LEVELS: Level[] = [
-  createLevel(
+  createLevel(0, [
     `
         XXXXXXXXXXXXX
-        XXXXXX XXXXXX
-        XXPXX   XXCXX
-        XXXXXX XXXXXX
         XXXXXXXXXXXXX
+        XXGXPXXXXCXXX
+        XXXXXXXXXXXXX
+        XXXXXXXXXXXXX
+    `,
+  ]),
+  createLevel(1, [
     `
-  ),
+        XXXXX   XXXXX
+        XXXXXXXXXXCXX
+        XXPXX   XXXXX
+        XXXXX     X  
+        XXGXX   XXXXX
+        XXXXXXXXXXCXX
+        XXXXX   XXXXX
+    `,
+  ]),
 ];

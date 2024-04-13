@@ -1,60 +1,167 @@
 import * as THREE from "three";
 import { Screen } from "./screen";
-import { random, range } from "../helpers";
 import { UpdateContext } from "../main";
-import { ASPECT_RATIO } from "../renderer";
-import { Level, Tile } from "../model/level";
-
-function createTileMaterials() {
-  const top = new THREE.MeshBasicMaterial({
-    color: new THREE.Color(
-      0.1 + random(-0.05, 0.05),
-      1 + random(-0.1, 0),
-      0.2 + random(-0.05, 0.05)
-    ),
-  });
-  const sides = new THREE.MeshBasicMaterial({
-    color: new THREE.Color("#8B4513"),
-  });
-
-  return [sides, sides, top, sides, sides, sides];
-}
+import { LEVELS, Level } from "../model/level";
+import { EntityCollection } from "../entities/entity-collection";
+import { MapEntity } from "../entities/map";
+import { CameraEntity } from "../entities/camera";
+import { PlayerEntity } from "../entities/player";
+import { CatEntity } from "../entities/cat";
+import { GoalEntity } from "../entities/goal";
+import { vec3ToVec2 } from "../helpers/vector";
+import { clamp } from "three/src/math/MathUtils";
+import { slerp } from "../helpers/common";
+import { OverlayText } from "../entities/overlay-text";
 
 export class GameplayScreen extends Screen {
   private level: Level;
-  private cubes: THREE.Object3D[];
+  private entityCollection: EntityCollection;
+  private timeSinceScreenLoad = 0;
+  private timeSinceFinish = 0;
+  private timeSinceFail = 0;
+  private wasLevelFinished = false;
+  private wasLevelFailed = false;
+  private topText: OverlayText;
+  private bottomText: OverlayText;
 
   constructor(level: Level) {
-    super(new THREE.PerspectiveCamera(50, ASPECT_RATIO, 0.1, 1000));
+    super();
     this.level = level;
+    this.entityCollection = new EntityCollection(this.scene);
+  }
+
+  isLevelFinished(): boolean {
+    const player = this.entityCollection.findOne(PlayerEntity);
+    const cats = this.entityCollection.findAll(CatEntity);
+    const goal = this.entityCollection.findOne(GoalEntity);
+
+    if (
+      cats.every(
+        (cat) =>
+          vec3ToVec2(cat.getGroup().position).distanceTo(
+            vec3ToVec2(goal.getGroup().position)
+          ) < 1
+      )
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
+  isLevelFailed(): boolean {
+    const player = this.entityCollection.findOne(PlayerEntity);
+    const cats = this.entityCollection.findAll(CatEntity);
+
+    return cats.some((cat) => cat.getIsFalling()) || player.getIsFalling();
   }
 
   setup(): void {
-    this.camera.position.y = 10;
-    this.camera.position.x = this.level.map.width / 2;
-    this.camera.position.z = (this.level.map.height / 4) * 8;
-
-    this.camera.lookAt(
-      new THREE.Vector3(this.level.map.width / 2, 0, this.level.map.height / 2)
+    this.entityCollection.add(
+      new MapEntity(this.entityCollection, this.level.map)
     );
 
-    this.cubes = [];
+    this.entityCollection.add(
+      new GoalEntity(this.entityCollection, this.level.goalLocation)
+    );
 
-    const geometry = new THREE.BoxGeometry(1, 1, 1);
-    for (const x of range(0, this.level.map.width - 1)) {
-      for (const y of range(0, this.level.map.height - 1)) {
-        const tile = this.level.map.at(x, y);
-        if (tile === Tile.Gap) continue;
+    this.entityCollection.add(new CameraEntity(this.entityCollection));
+    this.entityCollection.add(
+      new PlayerEntity(this.entityCollection, this.level.playerStartLocation)
+    );
 
-        const cube = new THREE.Mesh(geometry, createTileMaterials());
+    for (const catLocation of this.level.catStartLocations) {
+      this.entityCollection.add(
+        new CatEntity(this.entityCollection, catLocation)
+      );
+    }
 
-        cube.position.x = x;
-        cube.position.z = y;
-        this.scene.add(cube);
-        this.cubes.push(cube);
+    this.entityCollection.add(
+      (this.topText = new OverlayText(
+        this.entityCollection,
+        this.level.map,
+        true
+      ))
+    );
+
+    this.entityCollection.add(
+      (this.bottomText = new OverlayText(
+        this.entityCollection,
+        this.level.map,
+        false
+      ))
+    );
+
+    this.topText.showStartText();
+    this.bottomText.showControlsText(this.level);
+  }
+
+  getCamera(): THREE.Camera {
+    return this.entityCollection.findOne(CameraEntity).getCamera();
+  }
+
+  update(ctx: UpdateContext): void {
+    this.wasLevelFinished = this.isLevelFinished();
+    this.wasLevelFailed = this.isLevelFailed();
+
+    this.entityCollection.update(ctx);
+    this.timeSinceScreenLoad += ctx.deltaTime;
+
+    this.scene.position.z = -slerp(
+      clamp(this.timeSinceScreenLoad / 4 + 0.25, 0, 1),
+      -20,
+      0
+    );
+
+    if (this.isLevelFinished()) {
+      this.timeSinceFinish += ctx.deltaTime;
+      const isGameFinished = this.level.index === LEVELS.length - 1;
+      if (!isGameFinished) {
+        this.topText.showLevelFinishedText();
+      } else {
+        this.topText.showGameFinishedText();
+      }
+
+      this.entityCollection.findOne(PlayerEntity).setLevelFinished();
+
+      if (!isGameFinished) {
+        if (this.timeSinceFinish > 3) {
+          this.scene.position.z = -slerp(
+            clamp((this.timeSinceFinish - 3) / 2, 0, 1),
+            0,
+            40
+          );
+        }
+
+        if (this.timeSinceFinish > 5) {
+          ctx.actions.changeScreen(
+            new GameplayScreen(LEVELS[this.level.index + 1])
+          );
+        }
+      }
+    }
+
+    if (this.isLevelFailed()) {
+      this.timeSinceFail += ctx.deltaTime;
+      if (this.timeSinceFail > 2) {
+        this.topText.showLevelFailedText();
+      }
+
+      this.entityCollection.findOne(PlayerEntity).setLevelFinished();
+
+      if (this.timeSinceFail > 4) {
+        this.scene.position.z = -slerp(
+          clamp((this.timeSinceFail - 4) / 2, 0, 1),
+          0,
+          40
+        );
+      }
+
+      if (this.timeSinceFail > 6) {
+        ctx.actions.changeScreen(new GameplayScreen(LEVELS[this.level.index]));
       }
     }
   }
-  update(ctx: UpdateContext): void {}
+
   teardown(): void {}
 }

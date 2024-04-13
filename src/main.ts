@@ -3,10 +3,14 @@ import { GameplayScreen } from "./screens/gameplay-screen";
 import { createRenderer } from "./renderer";
 import { Screen } from "./screens/screen";
 import { LEVELS } from "./model/level";
+import { InputState } from "./input";
 
 export interface SetupContext {}
 export interface UpdateContext extends SetupContext {
   deltaTime: number;
+  totalTime: number;
+
+  input: InputState;
 
   actions: {
     changeScreen(screen: Screen): void;
@@ -19,10 +23,13 @@ function createInitialScreen(): Screen {
 
 function main() {
   const rootScene = new THREE.Scene();
+  rootScene.fog = new THREE.Fog("#DCF3FF", 100, 200);
   const renderer = createRenderer();
-  rootScene.background = new THREE.Color(THREE.Color.NAMES.aliceblue);
+
+  rootScene.background = new THREE.Color("#DCF3FF");
 
   let currentScreen: Screen;
+  let screenChangedDuringUpdate = false;
   function changeScreen(newScreen: Screen) {
     if (currentScreen) {
       currentScreen.teardown();
@@ -32,23 +39,36 @@ function main() {
     newScreen.setup({});
     rootScene.add(newScreen.getScene());
     currentScreen = newScreen;
+    screenChangedDuringUpdate = true;
   }
-
   changeScreen(createInitialScreen());
 
   const clock = new THREE.Clock();
+  const input = new InputState();
+  let totalTime = 0;
   function animate() {
     requestAnimationFrame(animate);
 
+    const deltaTime = clock.getDelta();
+    totalTime += deltaTime;
+
     const updateContext: UpdateContext = {
-      deltaTime: clock.getDelta(),
+      deltaTime,
+      totalTime,
+      input,
       actions: {
         changeScreen,
       },
     };
 
     currentScreen.update(updateContext);
-    renderer.render(rootScene, currentScreen.getCamera());
+    input.postUpdate();
+
+    if (!screenChangedDuringUpdate) {
+      renderer.render(rootScene, currentScreen.getCamera());
+    }
+
+    screenChangedDuringUpdate = false;
   }
 
   animate();
