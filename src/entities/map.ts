@@ -6,7 +6,6 @@ import { Entity } from "./entity";
 import { EntityCollection } from "./entity-collection";
 import { random, range } from "../helpers/common";
 import { loadPixelArtTexture } from "../helpers/texture";
-import { CustomBoxGeometry } from "../geometries/custom-box-geometry";
 
 function createTileMaterials() {
   const grassTopTexture = loadPixelArtTexture("grass-top.png");
@@ -27,26 +26,10 @@ function createTileMaterials() {
     map: grassSideTexture,
   });
 
-  const sideLeft = new THREE.MeshBasicMaterial({
-    color,
-    map: grassSideTexture,
-  });
-
-  const sideFront = new THREE.MeshBasicMaterial({
-    color,
-    map: grassSideTexture,
-  });
-
-  const backAndBottom = new THREE.MeshBasicMaterial({
-    color,
-    map: grassSideTexture,
-  });
-
   return [sides, sides, sides, sides, top, sides];
 }
 
 export class MapEntity extends Entity {
-  private cube: THREE.Mesh;
   constructor(entityCollection: EntityCollection, private readonly map: Map) {
     super(entityCollection);
   }
@@ -60,24 +43,23 @@ export class MapEntity extends Entity {
     const materials = createTileMaterials();
     for (const x of range(0, this.map.width - 1)) {
       for (const y of range(0, this.map.height - 1)) {
-        const tile = this.map.at(x, y);
-        if (tile === Tile.Gap) continue;
+        for (const z of range(0, this.map.depth - 1)) {
+          const tile = this.map.at(x, y, z);
+          if (tile === Tile.Gap) continue;
 
-        const cube = new THREE.Mesh(geometry, materials);
+          const cube = new THREE.Mesh(geometry, materials);
 
-        const TALLNESS = 1;
-        cube.position.x = x + 0.5;
-        cube.position.y = y + 0.5;
-        cube.position.z = -TALLNESS / 2;
-        cube.scale.set(1, 1, TALLNESS);
-        this.group.add(cube);
-        if (!this.cube) this.cube = cube;
+          const TALLNESS = 1;
+          cube.position.x = x + 0.5;
+          cube.position.y = y + 0.5;
+          cube.position.z = z + -TALLNESS / 2;
+          cube.scale.set(1, 1, TALLNESS);
+          this.group.add(cube);
+        }
       }
     }
   }
 
-  update(ctx: UpdateContext): void {
-    this.cube.rotateZ(ctx.deltaTime);
-  }
+  update(ctx: UpdateContext): void {}
   teardown(): void {}
 }

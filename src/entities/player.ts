@@ -23,7 +23,7 @@ export class PlayerEntity extends Entity {
 
   constructor(
     entityCollection: EntityCollection,
-    private readonly initialPosition: THREE.Vector2
+    private readonly initialPosition: THREE.Vector3
   ) {
     super(entityCollection);
   }
@@ -74,7 +74,7 @@ export class PlayerEntity extends Entity {
 
     this.group.position.x = this.initialPosition.x;
     this.group.position.y = this.initialPosition.y;
-    this.group.position.z = 0;
+    this.group.position.z = this.initialPosition.z;
   }
 
   update(ctx: UpdateContext): void {
@@ -146,7 +146,7 @@ export class PlayerEntity extends Entity {
         [underfootAreaRight, underfootAreaBottom],
       ].map(([x, y]) => [Math.floor(x), Math.floor(y)]);
 
-      if (tileIndices.every(([x, y]) => map.at(x, y) === Tile.Gap)) {
+      if (tileIndices.every(([x, y]) => map.at(x, y, 0) === Tile.Gap)) {
         this.isFalling = true;
       }
     } else {

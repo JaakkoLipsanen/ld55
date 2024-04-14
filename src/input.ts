@@ -9,6 +9,9 @@ export class InputState {
     window.addEventListener("keyup", (e) =>
       this.pressedDownKeys.delete(e.key.toUpperCase())
     );
+
+    window.addEventListener("blur", (e) => this.pressedDownKeys.clear());
+    window.addEventListener("focus", (e) => this.pressedDownKeys.clear());
   }
 
   isKeyDown(key: string): boolean {

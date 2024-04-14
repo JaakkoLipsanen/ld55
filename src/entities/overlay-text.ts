@@ -65,7 +65,7 @@ export class OverlayText extends Entity {
 
   showGameFinishedText() {
     this.primaryText.text =
-      "We have had enough picnics now\n See you next summer!";
+      "We have had enough picnics now\n           See you next summer!";
     this.dropshadowText.text =
       "We have had enough picnics now, see you next summer!";
 
@@ -81,7 +81,9 @@ export class OverlayText extends Entity {
     this.primaryText.text = "";
     this.primaryText.fontSize = 1;
     this.primaryText.position.x = this.map.width / 2;
-    this.primaryText.position.y = this.top ? this.map.height + 2 : -2;
+    this.primaryText.position.y = this.top
+      ? this.map.height + 1 + this.map.depth
+      : -2;
     this.primaryText.position.z = 0;
     this.primaryText.font = "font.ttf";
     this.primaryText.color = "white";

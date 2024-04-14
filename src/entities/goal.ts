@@ -8,7 +8,7 @@ import { loadPixelArtTexture } from "../helpers/texture";
 export class GoalEntity extends Entity {
   constructor(
     entityCollection: EntityCollection,
-    private readonly location: THREE.Vector2
+    private readonly location: THREE.Vector3
   ) {
     super(entityCollection);
   }
@@ -31,7 +31,11 @@ export class GoalEntity extends Entity {
     spriteMesh.renderOrder = 0;
 
     this.group.add(spriteMesh);
-    this.group.position.set(this.location.x, this.location.y, 0.001);
+    this.group.position.set(
+      this.location.x,
+      this.location.y,
+      this.location.z + 0.001
+    );
   }
   update(ctx: UpdateContext): void {}
 
